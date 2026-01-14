@@ -274,7 +274,7 @@ class UrlJob(Job):
         else:
             self.url = location
 
-    def retrieve(self, job_state):
+    def retrieve(self, job_state, request_lib=requests):
         headers = {
             'User-agent': urlwatch.__user_agent__,
         }
@@ -328,7 +328,7 @@ class UrlJob(Job):
         else:
             timeout = self.timeout
 
-        response = requests.request(url=self.url,
+        response = request_lib.request(url=self.url,
                                     data=self.data,
                                     headers=headers,
                                     method=self.method,
