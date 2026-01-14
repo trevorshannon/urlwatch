@@ -292,7 +292,7 @@ class UrlJob(Job):
     def set_base_location(self, location):
         self.url = location
 
-    def retrieve(self, job_state):
+    def retrieve(self, job_state, request_lib=requests):
         headers = {
             'User-agent': urlwatch.__user_agent__,
         }
@@ -349,7 +349,7 @@ class UrlJob(Job):
         else:
             timeout = self.timeout
 
-        response = requests.request(url=self.url,
+        response = request_lib.request(url=self.url,
                                     data=None if self.json else self.data,
                                     json=self.data if self.json else None,
                                     headers=headers,
