@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of urlwatch (https://thp.io/2008/urlwatch/).
-# Copyright (c) 2008-2023 Thomas Perl <m@thp.io>
+# Copyright (c) 2008-2024 Thomas Perl <m@thp.io>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -35,6 +35,7 @@ import os
 import re
 import subprocess
 import textwrap
+from typing import Iterable, Optional, Set, FrozenSet, Sequence
 
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
@@ -196,7 +197,12 @@ class JobBase(object, metaclass=TrackSubClasses):
 
 class Job(JobBase):
     __required__ = ()
-    __optional__ = ('name', 'filter', 'max_tries', 'diff_tool', 'compared_versions', 'diff_filter', 'enabled', 'treat_new_as_changed', 'user_visible_url')
+    __optional__ = ('name', 'filter', 'max_tries', 'diff_tool', 'compared_versions', 'diff_filter', 'enabled', 'treat_new_as_changed', 'user_visible_url', 'tags')
+
+    def matching_tags(self, tags: Set[str]) -> Set[str]:
+        if self.tags is None:
+            return False
+        return self.tags & tags
 
     # determine if hyperlink "a" tag is used in HtmlReporter
     def location_is_url(self):
@@ -207,6 +213,19 @@ class Job(JobBase):
 
     def is_enabled(self):
         return self.enabled is None or self.enabled
+
+    @property
+    def tags(self) -> Optional[FrozenSet[str]]:
+        return self._tags
+
+    @tags.setter
+    def tags(self, value: Optional[Iterable[str]]):
+        if value is None:
+            self._tags = None
+        elif isinstance(value, str):
+            self._tags = frozenset([value])
+        else:
+            self._tags = frozenset(value)
 
 
 class ShellJob(Job):
@@ -261,9 +280,9 @@ class UrlJob(Job):
     __kind__ = 'url'
 
     __required__ = ('url',)
-    __optional__ = ('cookies', 'data', 'method', 'ssl_no_verify', 'ignore_cached', 'http_proxy', 'https_proxy',
-                    'headers', 'ignore_connection_errors', 'ignore_http_error_codes', 'encoding', 'timeout',
-                    'ignore_timeout_errors', 'ignore_too_many_redirects', 'ignore_incomplete_reads')
+    __optional__ = ('cookies', 'data', 'json', 'method', 'ssl_no_verify', 'ignore_cached', 'http_proxy',
+                    'https_proxy', 'headers', 'ignore_connection_errors', 'ignore_http_error_codes', 'encoding',
+                    'timeout', 'ignore_timeout_errors', 'ignore_too_many_redirects', 'ignore_incomplete_reads')
 
     CHARSET_RE = re.compile('text/(html|plain); charset=([^;]*)')
 
@@ -298,7 +317,10 @@ class UrlJob(Job):
         if self.data is not None:
             if self.method is None:
                 self.method = "POST"
-            headers['Content-type'] = 'application/x-www-form-urlencoded'
+            if self.json:
+                headers['Content-type'] = 'application/json'
+            else:
+                headers['Content-type'] = 'application/x-www-form-urlencoded'
             logger.info('Sending %s request to %s', self.method, self.url)
 
         if self.method is None:
@@ -328,7 +350,8 @@ class UrlJob(Job):
             timeout = self.timeout
 
         response = requests.request(url=self.url,
-                                    data=self.data,
+                                    data=None if self.json else self.data,
+                                    json=self.data if self.json else None,
                                     headers=headers,
                                     method=self.method,
                                     verify=(not self.ssl_no_verify),
@@ -413,7 +436,7 @@ class BrowserJob(Job):
 
     __required__ = ('navigate',)
 
-    __optional__ = ('wait_until', 'useragent', 'browser')
+    __optional__ = ('wait_until', 'wait_for', 'useragent', 'browser')
 
     def get_location(self):
         return self.user_visible_url or self.navigate
@@ -433,4 +456,9 @@ class BrowserJob(Job):
                 self.wait_until = 'networkidle'
 
             page.goto(self.navigate, wait_until=self.wait_until)
+
+            if self.wait_for:
+                locator = page.locator(self.wait_for)
+                locator.wait_for()
+
             return page.content()

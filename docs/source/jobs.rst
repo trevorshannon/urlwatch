@@ -49,6 +49,7 @@ Job-specific optional keys:
 - ``cookies``: Cookies to send with the request (see :ref:`advanced_topics`)
 - ``method``: HTTP method to use (default: ``GET``)
 - ``data``: HTTP POST/PUT data
+- ``json``: If ``true``, serialize ``data`` as JSON and set ``Content-type`` to ``application/json`` (default: ``false``)
 - ``ssl_no_verify``: Do not verify SSL certificates (true/false)
 - ``ignore_cached``: Do not use cache control (ETag/Last-Modified) values (true/false)
 - ``http_proxy``: Proxy server to use for HTTP requests (might be http:// or socks5://)
@@ -90,6 +91,9 @@ Job-specific optional keys:
 
 - ``wait_until``: Either ``load``, ``domcontentloaded``, ``networkidle``, or
   ``commit`` (see :ref:`advanced_topics`)
+- ``wait_for``: A CSS or XPath selector based on the
+  _`Playwright Locator`: https://playwright.dev/python/docs/locators#locate-by-css-or-xpath
+  spec. The job will wait for the default timeout of 30 seconds.
 - ``useragent``: ``User-Agent`` header used for requests (otherwise browser default is used)
 - ``browser``:  Either ``chromium``, ``chrome``, ``chrome-beta``, ``msedge``,
   ``msedge-beta``, ``msedge-dev``, ``firefox``, ``webkit`` (must be installed with ``playwright install``)
@@ -169,6 +173,7 @@ Optional keys for all job types
 -------------------------------
 
 - ``name``: Human-readable name/label of the job
+- ``tags``: Array of tags, or a single tag as a string
 - ``filter``: :doc:`filters` (if any) to apply to the output (can be tested with ``--test-filter``)
 - ``max_tries``: After this many sequential failed runs, the error will be reported rather than ignored
 - ``diff_tool``: Command to a custom tool for generating diff text

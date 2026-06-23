@@ -1,7 +1,7 @@
 pyyaml
-minidb >= 2.0.6
+minidb >= 2.0.8
 requests
 keyring
-appdirs
+platformdirs
 lxml
 cssselect

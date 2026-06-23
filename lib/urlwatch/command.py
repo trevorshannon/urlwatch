@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of urlwatch (https://thp.io/2008/urlwatch/).
-# Copyright (c) 2008-2023 Thomas Perl <m@thp.io>
+# Copyright (c) 2008-2024 Thomas Perl <m@thp.io>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -95,16 +95,16 @@ class UrlwatchCommand:
         return 0
 
     def list_urls(self):
-        for idx, job in enumerate(self.urlwatcher.jobs):
+        for idx, job in enumerate(self.urlwatcher.jobs, 1):
             if self.urlwatch_config.verbose:
-                print('%d: %s' % (idx + 1, repr(job)))
+                print('%d: %s' % (idx, repr(job)))
             else:
                 pretty_name = job.pretty_name()
                 location = job.get_location()
                 if pretty_name != location:
-                    print('%d: %s ( %s )' % (idx + 1, pretty_name, location))
+                    print('%d: %s ( %s )' % (idx, pretty_name, location))
                 else:
-                    print('%d: %s' % (idx + 1, pretty_name))
+                    print('%d: %s' % (idx, pretty_name))
         return 0
 
     def _find_job(self, query):
@@ -141,6 +141,19 @@ class UrlwatchCommand:
         # We do not save the job state or job on purpose here, since we are possibly modifying the job
         # (ignore_cached) and we do not want to store the newly-retrieved data yet (filter testing)
         return 0
+
+    def prepare_jobs(self):
+        new_jobs = set()
+        for idx, job in enumerate(self.urlwatcher.jobs):
+            has_history = self.urlwatcher.cache_storage.has_history_data(job.get_guid())
+            if not has_history:
+                logger.info('Add Job: %s', job.pretty_name())
+                new_jobs.add(idx + 1)
+        if not new_jobs and not self.urlwatch_config.idx_set:
+            return 0
+        self.urlwatch_config.idx_set = self.urlwatch_config.idx_set.union(new_jobs)
+        self.urlwatcher.run_jobs()
+        self.urlwatcher.close()
 
     def _resolve_job_history(self, id, max_entries=10):
         job = self._get_job(id)
@@ -197,6 +210,24 @@ class UrlwatchCommand:
                 print('Removed %r' % (job,))
             else:
                 print('Not found: %r' % (self.urlwatch_config.delete,))
+                save = False
+
+        if self.urlwatch_config.enable is not None:
+            job = self._find_job(self.urlwatch_config.enable)
+            if job is not None:
+                job.enabled = True
+                print(f'Enabled {job!r}')
+            else:
+                print(f'Not found: {self.urlwatch_config.enable!r}')
+                save = False
+
+        if self.urlwatch_config.disable is not None:
+            job = self._find_job(self.urlwatch_config.disable)
+            if job is not None:
+                job.enabled = False
+                print(f'Disabled {job!r}')
+            else:
+                print(f'Not found: {self.urlwatch_config.disable!r}')
                 save = False
 
         if self.urlwatch_config.add is not None:
@@ -256,12 +287,16 @@ class UrlwatchCommand:
             sys.exit(self.test_filter(self.urlwatch_config.test_filter))
         if self.urlwatch_config.test_diff_filter:
             sys.exit(self.test_diff_filter(self.urlwatch_config.test_diff_filter))
+        if self.urlwatch_config.prepare_jobs:
+            sys.exit(self.prepare_jobs())
         if self.urlwatch_config.dump_history:
             sys.exit(self.dump_history(self.urlwatch_config.dump_history))
         if self.urlwatch_config.list:
             sys.exit(self.list_urls())
         if (self.urlwatch_config.add is not None
                 or self.urlwatch_config.delete is not None
+                or self.urlwatch_config.enable is not None
+                or self.urlwatch_config.disable is not None
                 or self.urlwatch_config.change_location is not None):
             sys.exit(self.modify_urls())
 
@@ -450,11 +485,13 @@ class UrlwatchCommand:
             sys.exit(0)
 
     def run(self):
-        self.check_edit_config()
-        self.check_smtp_login()
-        self.check_telegram_chats()
-        self.check_xmpp_login()
-        self.check_test_reporter()
-        self.handle_actions()
-        self.urlwatcher.run_jobs()
-        self.urlwatcher.close()
+        try:
+            self.check_edit_config()
+            self.check_smtp_login()
+            self.check_telegram_chats()
+            self.check_xmpp_login()
+            self.check_test_reporter()
+            self.handle_actions()
+            self.urlwatcher.run_jobs()
+        finally:
+            self.urlwatcher.close()

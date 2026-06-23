@@ -1,6 +1,6 @@
 #
 # This file is part of urlwatch (https://thp.io/2008/urlwatch/).
-# Copyright (c) 2008-2023 Thomas Perl <m@thp.io>
+# Copyright (c) 2008-2024 Thomas Perl <m@thp.io>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -313,7 +313,7 @@ class TextReporter(ReporterBase):
             sep = (line_length * '=') or None
             yield from (part for part in itertools.chain(
                 (sep,),
-                ('%02d. %s' % (idx + 1, line) for idx, line in enumerate(summary)),
+                ('%02d. %s' % (idx, line) for idx, line in enumerate(summary, 1)),
                 (sep, ''),
             ) if part is not None)
 
@@ -860,7 +860,7 @@ class MarkdownReporter(ReporterBase):
         # The footer/summary lengths are the sum of the length of their parts
         # plus the space taken up by newlines.
         if summary:
-            summary = ['%d. %s' % (idx + 1, line) for idx, line in enumerate(summary)]
+            summary = ['%d. %s' % (idx, line) for idx, line in enumerate(summary, 1)]
             summary_len = sum(len(part) for part in summary) + len(summary) - 1
         else:
             summary_len = 0
@@ -1113,11 +1113,13 @@ class ShellReporter(TextReporter):
     __kind__ = 'shell'
 
     def submit(self):
-        text = '\n'.join(super().submit()) + '\n'
+        text = '\n'.join(super().submit())
 
         if not text:
             logger.debug('Not calling shell reporter (no changes)')
             return
+
+        text = text + '\n'
 
         cmd = self.config['command']
 
@@ -1134,3 +1136,71 @@ class ShellReporter(TextReporter):
         exitcode = process.wait()
         if exitcode != 0:
             logger.error('Shell reporter {} exited with {}'.format(cmd, exitcode))
+
+
+class GotifyReporter(MarkdownReporter):
+    """Send a message to a gotify server"""
+    MAX_LENGTH = 16 * 1024
+
+    __kind__ = 'gotify'
+
+    def submit(self):
+        body_markdown = '\n'.join(super().submit(self.MAX_LENGTH))
+        if not body_markdown:
+            logger.debug('Not sending message to gotify server (no changes)')
+            return
+
+        server_url = self.config['server_url']
+        url = f'{server_url}/message'
+
+        token = self.config['token']
+        headers = {'Authorization': f'Bearer {token}'}
+
+        requests.post(url, headers=headers, json={
+            "extras": {
+                "client::display": {
+                    "contentType": "text/markdown",
+                },
+            },
+            'message': body_markdown,
+            'priority': self.config['priority'],
+            'title': self.config['title'],
+        })
+
+
+class NtfyReporter(TextReporter):
+    """Send messages to a ntfy server"""
+
+    __kind__ = 'ntfy'
+
+    def submit(self):
+        topic_url = self.config['topic_url']
+        headers = {}
+        config_priorities = self.config.get("priorities", {})
+        if priority := config_priorities.get("default"):
+            headers['Priority'] = priority
+        if authorization := self.config.get('authorization'):
+            headers['Authorization'] = authorization
+
+        for job_state in self.report.get_filtered_job_states(self.job_states):
+            title = f'urlwatch {job_state.verb.upper()}: {job_state.job.pretty_name()}'
+            content = self._format_content(job_state)
+            # requests does not handle utf-8-encoded strings in
+            # headers properly, so they are encoded beforehand
+            job_headers = {
+                **headers,
+                'Title': title.encode('utf-8'),
+            }
+            if priority := config_priorities.get(job_state.verb):
+                job_headers["Priority"] = priority
+            if job_state.job.location_is_url():
+                job_headers['Actions'] = f'view, Open URL, "{job_state.job.get_location()}", clear=true'.encode('utf-8')
+            try:
+                r = requests.post(
+                    topic_url,
+                    headers=job_headers,
+                    data=content.encode(encoding='utf-8') if content is not None else None,
+                )
+                r.raise_for_status()
+            except Exception:  # catch any error so other job states aren't affected if publishing fails
+                logger.exception(f"Failed to publish to ntfy topic '{topic_url}'")

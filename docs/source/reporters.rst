@@ -62,6 +62,8 @@ At the moment, the following reporters are built-in:
 
 - **discord**: Send a message to a Discord channel
 - **email**: Send summary via e-mail / SMTP / sendmail
+- **gotify**: Send a message to a gotify server
+- **ntfy**: Send messages to a ntfy server
 - **ifttt**: Send summary via IFTTT
 - **mailgun**: Send e-mail via the Mailgun service
 - **matrix**: Send a message to a room using the Matrix protocol
@@ -209,6 +211,57 @@ To set up Discord, from your Discord Server settings, select Integration and the
 Embedded content might be easier to read and identify individual reports. Subject precedes the embedded report and is only used when `embed` is true.
 
 When `colored` is true reports will be embedded in code section (with diff syntax) to enable colors.
+
+Gotify
+------
+
+[Gotify](https://gotify.net/) is a server for sending and receiving messages in real-time through WebSockets.
+
+To push notifications to a gotify server you need an application token.
+
+You can create one for urlwatch like so:
+
+1. Log into your gotify server's Web-UI.
+2. Navigate to the “APPS” tab.
+3. Click on the “CREATE APPLICATION” button.
+4. Fill out the fields and press “CREATE”.
+5. Click on the eye icon of the newly created entry and copy the token.
+
+Here is a sample configuration:
+
+.. code:: yaml
+
+   gotify:
+     enabled: true
+     priority: 4
+     server_url: "http://127.0.0.1:8090"
+     title: null
+     token: "Aa1yyikLFjEm35A"
+
+ntfy
+----
+
+[ntfy](https://ntfy.sh) is a server for sending and receiving notifications via HTTP.
+
+To configure it, you need to provide the topic URL that reports should be sent to.
+
+If the ntfy server requires authentication to publish to the topic, you need to supply an appropriate value for the `Authorization` header, as described in [the ntfy documentation](https://docs.ntfy.sh/publish/#authentication).
+
+ntfy supports assigning a priority to a message. You can specify a default priority for messages sent by urlwatch as well as individual priorities for `changed` or `new` URLs and ones with an `error`. Names for the different priorities are listed in [the ntfy documentation](https://docs.ntfy.sh/publish/#message-priority).
+
+Here is a sample configuration:
+
+.. code:: yaml
+
+   ntfy:
+     enabled: true
+     topic_url: "https://ntfy.sh/urlwatch"
+     authorization: "Basic ..."
+     priorities:
+       default: default
+       new: low
+       changed: max
+       error: high
 
 IFTTT
 -----

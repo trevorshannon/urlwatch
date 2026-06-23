@@ -11,19 +11,19 @@ with open(os.path.join('lib', 'urlwatch', '__init__.py')) as f:
 m = dict(re.findall("\n__([a-z]+)__ = '([^']+)'", main_py))
 docs = re.findall('"""(.*?)"""', main_py, re.DOTALL)
 
-if sys.version_info < (3, 8):
-    sys.exit('urlwatch requires Python 3.8 or newer')
+if sys.version_info < (3, 9):
+    sys.exit('urlwatch requires Python 3.9 or newer')
 
 m['name'] = 'urlwatch'
 m['author'], m['author_email'] = re.match(r'(.*) <(.*)>', m['author']).groups()
 m['description'], m['long_description'] = docs[0].strip().split('\n\n', 1)
-m['install_requires'] = ['minidb>=2.0.6', 'PyYAML', 'requests', 'keyring', 'appdirs', 'lxml', 'cssselect']
+m['install_requires'] = ['minidb>=2.0.8', 'PyYAML', 'requests', 'keyring', 'platformdirs', 'lxml', 'cssselect']
 if sys.platform == 'win32':
     m['install_requires'].extend(['colorama'])
 m['entry_points'] = {"console_scripts": ["urlwatch=urlwatch.cli:main"]}
 m['package_dir'] = {'': 'lib'}
 m['packages'] = ['urlwatch']
-m['python_requires'] = '>=3.6'
+m['python_requires'] = '>=3.9'
 m['data_files'] = [
     ('share/man/man1', [
         'share/man/man1/urlwatch.1',

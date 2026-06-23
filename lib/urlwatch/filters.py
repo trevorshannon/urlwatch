@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of urlwatch (https://thp.io/2008/urlwatch/).
-# Copyright (c) 2008-2023 Thomas Perl <m@thp.io>
+# Copyright (c) 2008-2024 Thomas Perl <m@thp.io>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -846,6 +846,26 @@ class RegexSub(FilterBase):
 
         # Default: Replace with empty string if no "repl" value is set
         return re.sub(subfilter['pattern'], subfilter.get('repl', ''), data)
+
+
+class RegexFindall(FilterBase):
+    """Pick out regular expressions using Python's re.findall"""
+
+    __kind__ = 're.findall'
+
+    __supported_subfilters__ = {
+        'pattern': 'Regular expression to search for (required)',
+        'repl': 'Replacement string (default: full match)',
+    }
+
+    __default_subfilter__ = 'pattern'
+
+    def filter(self, data, subfilter):
+        if 'pattern' not in subfilter:
+            raise ValueError('{} needs a pattern'.format(self.__kind__))
+
+        # Default: Replace with full match if no "repl" value is set
+        return "\n".join(match.expand(subfilter.get('repl', '\\g<0>')) for match in re.finditer(subfilter['pattern'], data))
 
 
 class SortFilter(FilterBase):

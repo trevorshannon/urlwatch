@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of urlwatch (https://thp.io/2008/urlwatch/).
-# Copyright (c) 2008-2023 Thomas Perl <m@thp.io>
+# Copyright (c) 2008-2024 Thomas Perl <m@thp.io>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -152,6 +152,21 @@ DEFAULT_CONFIG = {
             'webhook_url': '',
             'max_message_length': 2000,
         },
+        'gotify': {
+            'enabled': False,
+            'priority': 0,
+            'server_url': '',
+            'title': None,
+            'token': '',
+        },
+        'ntfy': {
+            'enabled': False,
+            'topic_url': '',
+            'priorities': {
+                'default': 'default',
+            },
+            'authorization': None,
+        },
         'matrix': {
             'enabled': False,
             'homeserver': '',
@@ -277,11 +292,10 @@ class BaseTextualFileStorage(BaseFileStorage, metaclass=ABCMeta):
                 print('======')
                 print('')
                 print('The file', file_edit, 'was NOT updated.')
-                user_input = input("Do you want to retry the same edit? (y/n)")
-                if user_input.lower()[0] == 'y':
-                    continue
-                print('Your changes have been saved in', file_edit)
-                return 1
+                user_input = input("Do you want to retry the same edit? (Y/n)")
+                if user_input.lower()[:1] == 'n':
+                    print('Your changes have been saved in', file_edit)
+                    return 1
 
         atomic_rename(file_edit, self.filename)
         print('Saving edit changes in', self.filename)
@@ -311,14 +325,14 @@ class UrlsBaseFileStorage(BaseTextualFileStorage, metaclass=ABCMeta):
         dir_st = os.stat(dirname)
         if (dir_st.st_mode & (stat.S_IWGRP | stat.S_IWOTH)) != 0:
             shelljob_errors.append('%s is group/world-writable' % dirname)
-        if dir_st.st_uid != current_uid:
-            shelljob_errors.append('%s not owned by %s' % (dirname, get_current_user()))
+        if dir_st.st_uid not in (current_uid, 0):
+            shelljob_errors.append('%s not owned by %s or root' % (dirname, get_current_user()))
 
         file_st = os.stat(self.filename)
         if (file_st.st_mode & (stat.S_IWGRP | stat.S_IWOTH)) != 0:
             shelljob_errors.append('%s is group/world-writable' % self.filename)
-        if file_st.st_uid != current_uid:
-            shelljob_errors.append('%s not owned by %s' % (self.filename, get_current_user()))
+        if file_st.st_uid not in (current_uid, 0):
+            shelljob_errors.append('%s not owned by %s or root' % (self.filename, get_current_user()))
 
         return shelljob_errors
 
@@ -520,8 +534,8 @@ class CacheDirStorage(CacheStorage):
 
         return data, timestamp, None, None
 
-    def save(self, job, guid, data, timestamp, etag=None):
-        # Timestamp and ETag are always ignored
+    def save(self, job, guid, data, timestamp, tries, etag=None):
+        # Timestamp, tries and ETag are always ignored
         filename = self._get_filename(guid)
         with open(filename, 'w+') as fp:
             fp.write(data)
@@ -561,6 +575,8 @@ class CacheMiniDBStorage(CacheStorage):
         self.db = minidb.Store(self.filename, debug=True, vacuum_on_close=False)
         self.db.register(CacheEntry)
 
+        self._cached_has_history_data_set = None
+
     def close(self):
         self.db.close()
         self.db = None
@@ -593,6 +609,15 @@ class CacheMiniDBStorage(CacheStorage):
                 if len(history) >= count:
                     break
         return history
+
+    def has_history_data(self, guid):
+        if not self._cached_has_history_data_set:
+            self._cached_has_history_data_set = frozenset(guid[0] for guid in
+                                                           list(CacheEntry.query(self.db, CacheEntry.c.guid,
+                                                                                 where=((CacheEntry.c.tries == 0)
+                                                                                        | (CacheEntry.c.tries == None)))  # noqa:E711
+                                                                ))
+        return guid in self._cached_has_history_data_set
 
     def save(self, job, guid, data, timestamp, tries, etag=None):
         self.db.save(CacheEntry(guid=guid, timestamp=timestamp, data=data, tries=tries, etag=etag))
@@ -681,6 +706,9 @@ class CacheRedisStorage(CacheStorage):
                     if len(history) >= count:
                         break
         return history
+
+    def has_history_data(self, guid):
+        return bool(self.get_history_data(guid))
 
     def save(self, job, guid, data, timestamp, tries, etag=None):
         r = {

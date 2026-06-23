@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of urlwatch (https://thp.io/2008/urlwatch/).
-# Copyright (c) 2008-2023 Thomas Perl <m@thp.io>
+# Copyright (c) 2008-2024 Thomas Perl <m@thp.io>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -53,11 +53,13 @@ def run_parallel(func, items):
 
 
 def run_jobs(urlwatcher):
-    if not all(1 <= idx <= len(urlwatcher.jobs) for idx in urlwatcher.urlwatch_config.joblist):
+    if not urlwatcher.urlwatch_config.tags and not all(1 <= idx <= len(urlwatcher.jobs) for idx in urlwatcher.urlwatch_config.idx_set):
         raise ValueError(f'All job indices must be between 1 and {len(urlwatcher.jobs)}: {urlwatcher.urlwatch_config.joblist}')
     cache_storage = urlwatcher.cache_storage
     jobs = [job.with_defaults(urlwatcher.config_storage.config)
-            for (idx, job) in enumerate(urlwatcher.jobs) if job.is_enabled() and ((idx + 1) in urlwatcher.urlwatch_config.joblist or (not urlwatcher.urlwatch_config.joblist))]
+            for (idx, job) in enumerate(urlwatcher.jobs, 1)
+            if urlwatcher.should_run(idx, job)
+            ]
     report = urlwatcher.report
 
     logger.debug('Processing %d jobs (out of %d)', len(jobs), len(urlwatcher.jobs))

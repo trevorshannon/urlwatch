@@ -10,12 +10,12 @@ additional packages -- however, those are not needed to run urlwatch.
 Mandatory Packages
 ------------------
 
--  Python 3.8 or newer
+-  Python 3.9 or newer
 -  `PyYAML <http://pyyaml.org/>`__
 -  `minidb <https://thp.io/2010/minidb/>`__
 -  `requests <http://python-requests.org/>`__
 -  `keyring <https://github.com/jaraco/keyring/>`__
--  `appdirs <https://github.com/ActiveState/appdirs>`__
+-  `platformdirs <https://github.com/platformdirs/platformdirs>`__
 -  `lxml <https://lxml.de>`__
 -  `cssselect <https://cssselect.readthedocs.io>`__
 
@@ -23,7 +23,7 @@ The dependencies can be installed with (add ``--user`` to install to ``$HOME``):
 
 ::
 
-    python3 -m pip install pyyaml minidb requests keyring appdirs lxml cssselect
+    python3 -m pip install pyyaml minidb requests keyring platformdirs lxml cssselect
 
 
 Optional Packages

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # This file is part of urlwatch (https://thp.io/2008/urlwatch/).
-# Copyright (c) 2008-2023 Thomas Perl <m@thp.io>
+# Copyright (c) 2008-2024 Thomas Perl <m@thp.io>
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -35,14 +35,14 @@ import os.path
 import signal
 import sys
 
-from appdirs import AppDirs
+from platformdirs import PlatformDirs
 
 pkgname = 'urlwatch'
 urlwatch_dir = os.path.expanduser(os.path.join('~', '.' + pkgname))
-urlwatch_cache_dir = AppDirs(pkgname).user_cache_dir
+urlwatch_cache_dir = PlatformDirs(pkgname).user_cache_dir
 
 if not os.path.exists(urlwatch_dir):
-    urlwatch_dir = AppDirs(pkgname).user_config_dir
+    urlwatch_dir = PlatformDirs(pkgname).user_config_dir
 
 # Check if we are installed in the system already
 (prefix, bindir) = os.path.split(os.path.dirname(os.path.abspath(sys.argv[0])))
