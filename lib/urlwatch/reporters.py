@@ -270,9 +270,12 @@ class HtmlReporter(ReporterBase):
             timestamp_old = email.utils.formatdate(job_state.timestamp, localtime=True)
             timestamp_new = email.utils.formatdate(time.time(), localtime=True)
             html_diff = difflib.HtmlDiff()
+            context_lines = 3
+            if job_state.job.diff_context_lines is not None:
+                context_lines = job_state.job.diff_context_lines
             return SafeHtml(html_diff.make_table(job_state.old_data.splitlines(keepends=True),
                                                  job_state.new_data.splitlines(keepends=True),
-                                                 timestamp_old, timestamp_new, True, 3))
+                                                 timestamp_old, timestamp_new, True, context_lines))
         elif difftype == 'unified':
             return ''.join((
                 '<pre>',
