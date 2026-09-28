@@ -138,3 +138,22 @@ def chunkstring(string, length, *, numbering=False):
         return ('{} ({}/{})'.format(part, i + 1, len(parts)) for i, part in enumerate(parts))
 
     return (string[i:length + i].strip() for i in range(0, len(string), length))
+
+
+def should_ignore_http_code(status_code, codes_to_ignore) -> bool:
+    """Returns True if the given HTTP status code should be ignored.
+
+    status_code: The integer HTTP status code in question.
+    codes_to_ignore: The list of status codes to ignore.  Can be a single code,
+      a list of codes, or a string of comma separated codes.  Code classes, e.g.
+      '4xx' are accepted.
+    """
+    ignored_codes = []
+    if isinstance(codes_to_ignore, int) and codes_to_ignore == status_code:
+        return True
+    elif isinstance(codes_to_ignore, str):
+        ignored_codes = [s.strip().lower() for s in codes_to_ignore.split(',')]
+    elif isinstance(codes_to_ignore, list):
+        ignored_codes = [str(s).strip().lower() for s in codes_to_ignore]
+    # Check for code class matches too, e.g. '4xx', '5xx'
+    return str(status_code) in ignored_codes or f'{status_code // 100}xx' in ignored_codes

@@ -74,22 +74,22 @@ job list management:
           add job (key1=value1,key2=value2,...)
 
    --delete JOB
-          delete job by location or index
+          delete job by name, location or index
 
    --enable JOB
-          enable job by location or index
+          enable job by name, location or index
 
    --disable JOB
-          delete job by location or index
+          delete job by name, location or index
 
    --change_location JOB NEW_LOCATION
-          change the location of an existing job by location or index
+          change the location of an existing job by name, location or index
 
    --test-filter JOB
-          test filter output of job by location or index
+          test filter output of job by name, location or index
 
    --test-diff-filter JOB
-          test diff filter output of job by location or index (needs at least 2 snapshots)
+          test diff filter output of job by name, location or index (needs at least 2 snapshots)
 
    --dump-history JOB
           dump historical cached data for a job

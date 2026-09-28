@@ -94,40 +94,51 @@ class UrlwatchCommand:
         print()
         return 0
 
+    def _pretty_print_job(self, idx, job):
+        prefix = f"{idx}: " if idx else ""
+        if self.urlwatch_config.verbose:
+            print('%s%s' % (prefix, repr(job)))
+        else:
+            pretty_name = job.pretty_name()
+            location = job.get_location()
+            if pretty_name != location:
+                print('%s%s ( %s )' % (prefix, pretty_name, location))
+            else:
+                print('%s%s' % (prefix, pretty_name))
+
     def list_urls(self):
         for idx, job in enumerate(self.urlwatcher.jobs, 1):
-            if self.urlwatch_config.verbose:
-                print('%d: %s' % (idx, repr(job)))
-            else:
-                pretty_name = job.pretty_name()
-                location = job.get_location()
-                if pretty_name != location:
-                    print('%d: %s ( %s )' % (idx, pretty_name, location))
-                else:
-                    print('%d: %s' % (idx, pretty_name))
+            self._pretty_print_job(idx, job)
         return 0
 
-    def _find_job(self, query):
+    def _find_jobs(self, query):
         try:
             index = int(query)
             if index <= 0:
-                return None
+                return
             try:
-                return self.urlwatcher.jobs[index - 1]
+                yield self.urlwatcher.jobs[index - 1]
             except IndexError:
-                return None
+                return
         except ValueError:
-            return next((job for job in self.urlwatcher.jobs if job.get_location() == query), None)
+            for job in self.urlwatcher.jobs:
+                if query in (job.get_location(), job.name):
+                    yield job
 
-    def _get_job(self, id):
-        job = self._find_job(id)
-        if job is None:
+    def _get_single_job(self, id):
+        jobs = list(self._find_jobs(id))
+        if not jobs:
             print('Not found: {!r}'.format(id))
             raise SystemExit(1)
-        return job.with_defaults(self.urlwatcher.config_storage.config)
+        if len(jobs) > 1:
+            print('Matched multiple jobs: {!r}'.format(id))
+            for job in jobs:
+                self._pretty_print_job(None, job)
+            raise SystemExit(1)
+        return jobs[0].with_defaults(self.urlwatcher.config_storage.config)
 
     def test_filter(self, id):
-        job = self._get_job(id)
+        job = self._get_single_job(id)
 
         if isinstance(job, UrlJob):
             # Force re-retrieval of job, as we're testing filters
@@ -156,7 +167,7 @@ class UrlwatchCommand:
         self.urlwatcher.close()
 
     def _resolve_job_history(self, id, max_entries=10):
-        job = self._get_job(id)
+        job = self._get_single_job(id)
 
         history_data = self.urlwatcher.cache_storage.get_history_data(job.get_guid(), max_entries)
         history_data = sorted(history_data.items(), key=lambda kv: kv[1])
@@ -204,31 +215,19 @@ class UrlwatchCommand:
     def modify_urls(self):
         save = True
         if self.urlwatch_config.delete is not None:
-            job = self._find_job(self.urlwatch_config.delete)
-            if job is not None:
-                self.urlwatcher.jobs.remove(job)
-                print('Removed %r' % (job,))
-            else:
-                print('Not found: %r' % (self.urlwatch_config.delete,))
-                save = False
+            job = self._get_single_job(self.urlwatch_config.delete)
+            self.urlwatcher.jobs.remove(job)
+            print('Removed %r' % (job,))
 
         if self.urlwatch_config.enable is not None:
-            job = self._find_job(self.urlwatch_config.enable)
-            if job is not None:
-                job.enabled = True
-                print(f'Enabled {job!r}')
-            else:
-                print(f'Not found: {self.urlwatch_config.enable!r}')
-                save = False
+            job = self._get_single_job(self.urlwatch_config.enable)
+            job.enabled = True
+            print(f'Enabled {job!r}')
 
         if self.urlwatch_config.disable is not None:
-            job = self._find_job(self.urlwatch_config.disable)
-            if job is not None:
-                job.enabled = False
-                print(f'Disabled {job!r}')
-            else:
-                print(f'Not found: {self.urlwatch_config.disable!r}')
-                save = False
+            job = self._get_single_job(self.urlwatch_config.disable)
+            job.enabled = False
+            print(f'Disabled {job!r}')
 
         if self.urlwatch_config.add is not None:
             # Allow multiple specifications of filter=, so that multiple filters can be specified on the CLI
@@ -251,25 +250,20 @@ class UrlwatchCommand:
                       'Delete the existing job or choose a different value.')
                 save = False
             else:
-                job = self._find_job(self.urlwatch_config.change_location[0])
-                if job is not None:
-                    # Update the job's location (which will also update the
-                    # guid) and move any history in the cache over to the job's
-                    # updated guid.
-                    print(f'Moving location of {job!r} to "{new_loc}"')
-                    old_guid = job.get_guid()
-                    old_loc = job.get_location()
-                    job.set_base_location(new_loc)
-                    num_moved = self.urlwatcher.cache_storage.move(
-                        old_guid, job.get_guid())
-                    if num_moved:
-                        print(f'Moved {num_moved} snapshots of "{old_loc}" to "{new_loc}"')
-                else:
-                    print(f'Not found: {self.urlwatch_config.change_location[0]}')
-                    save = False
+                job = self._get_single_job(self.urlwatch_config.change_location[0])
+                # Update the job's location (which will also update the
+                # guid) and move any history in the cache over to the job's
+                # updated guid.
+                print(f'Moving location of {job!r} to "{new_loc}"')
+                old_guid = job.get_guid()
+                old_loc = job.get_location()
+                job.set_base_location(new_loc)
+                num_moved = self.urlwatcher.cache_storage.move(
+                    old_guid, job.get_guid())
+                if num_moved:
+                    print(f'Moved {num_moved} snapshots of "{old_loc}" to "{new_loc}"')
 
-        if save:
-            self.urlwatcher.urls_storage.save(self.urlwatcher.jobs)
+        self.urlwatcher.urls_storage.save(self.urlwatcher.jobs)
 
         return 0
 
@@ -396,6 +390,9 @@ class UrlwatchCommand:
         report.error(set_error(build_job('Error Reporting', 'http://example.com/error', '', ''), 'Oh Noes!'))
 
         report.finish_one(name)
+
+        if not report.reporters_enabled:
+            raise ValueError(f'Reporter not enabled: {name}')
 
         sys.exit(0)
 

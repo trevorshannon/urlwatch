@@ -109,5 +109,12 @@ class Urlwatch(object):
         run_jobs(self)
         self.report.finish()
 
+        if not self.report.reporters_enabled:
+            logger.warning('No reporters enabled.')
+
     def close(self):
+        for job_state in self.report.job_states:
+            if not job_state.reported_count:
+                logger.warning(f'Job {job_state.job.pretty_name()} was not reported on')
+
         self.cache_storage.close()
