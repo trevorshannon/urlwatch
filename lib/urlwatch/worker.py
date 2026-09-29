@@ -68,26 +68,26 @@ def run_jobs(urlwatcher):
         #                               (exit_stack.enter_context(JobState(cache_storage, job)) for job in jobs)):
     for job_state in (JobState(cache_storage, job) for job in jobs):
         job_state.process()
-        logger.debug('Job finished: %s', job_state.job)
+        logger.debug('Job finished: %s', job_state.job.get_location())
 
         if not job_state.job.max_tries:
             max_tries = 0
         else:
             max_tries = job_state.job.max_tries
-        logger.debug('Using max_tries of %i for %s', max_tries, job_state.job)
+        logger.debug('Using max_tries of %i for %s', max_tries, job_state.job.get_location())
 
         if job_state.exception is not None:
             if job_state.error_ignored:
-                logger.info('Error while executing job %s ignored due to job config', job_state.job)
+                logger.info('Error while executing job %s ignored due to job config', job_state.job.get_location())
             elif isinstance(job_state.exception, NotModifiedError):
-                logger.info('Job %s has not changed (HTTP 304)', job_state.job)
+                logger.info('Job %s has not changed (HTTP 304)', job_state.job.get_location())
                 report.unchanged(job_state)
                 if job_state.tries > 0:
                     job_state.tries = 0
                     job_state.save()
             elif job_state.tries < max_tries:
                 logger.debug('This was try %i of %i for job %s', job_state.tries,
-                             max_tries, job_state.job)
+                             max_tries, job_state.job.get_location())
                 job_state.save()
             elif job_state.tries >= max_tries:
                 logger.debug('We are now at %i tries ', job_state.tries)

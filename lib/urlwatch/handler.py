@@ -68,7 +68,7 @@ class JobState(object):
         try:
             self.job.main_thread_enter()
         except Exception as ex:
-            logger.info('Exception while creating resources for job: %r', self.job, exc_info=True)
+            logger.info('Exception while creating resources for job: %r', self.job.get_location(), exc_info=True)
             self.exception = ex
             self.traceback = traceback.format_exc()
 
@@ -79,7 +79,7 @@ class JobState(object):
             self.job.main_thread_exit()
         except Exception as ex:
             # We don't want exceptions from releasing resources to override job run results
-            logger.warning('Exception while releasing resources for job: %r', self.job, exc_info=True)
+            logger.warning('Exception while releasing resources for job: %r', self.job.get_location(), exc_info=True)
 
     def load(self):
         guid = self.job.get_guid()
@@ -97,7 +97,7 @@ class JobState(object):
         self.cache_storage.save(self.job, self.job.get_guid(), self.new_data, time.time(), self.tries, self.etag)
 
     def process(self):
-        logger.info('Processing: %s', self.job)
+        logger.info('Processing: %s', self.job.get_location())
 
         if self.exception:
             return self
@@ -129,7 +129,7 @@ class JobState(object):
                 self.error_ignored = self.job.should_ignore_error(e)
                 if not (self.error_ignored or isinstance(e, NotModifiedError)):
                     self.tries += 1
-                    logger.debug('Increasing number of tries to %i for %s', self.tries, self.job)
+                    logger.debug('Increasing number of tries to %i for %s', self.tries, self.job.get_location())
         except Exception as e:
             # job failed its chance to handle error
             self.exception = e
@@ -137,7 +137,7 @@ class JobState(object):
             self.error_ignored = False
             if not isinstance(e, NotModifiedError):
                 self.tries += 1
-                logger.debug('Increasing number of tries to %i for %s', self.tries, self.job)
+                logger.debug('Increasing number of tries to %i for %s', self.tries, self.job.get_location())
 
         return self
 
@@ -183,7 +183,7 @@ class Report(object):
 
     def _result(self, verb, job_state):
         if job_state.exception is not None:
-            logger.debug('Got exception while processing %r', job_state.job, exc_info=job_state.exception)
+            logger.debug('Got exception while processing %r', job_state.job.get_location(), exc_info=job_state.exception)
 
         job_state.verb = verb
         self.job_states.append(job_state)
