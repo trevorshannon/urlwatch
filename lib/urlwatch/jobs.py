@@ -446,7 +446,21 @@ class BrowserJob(Job):
     def retrieve(self, job_state):
         from playwright.sync_api import sync_playwright
         with sync_playwright() as playwright:
-            browser = playwright[self.browser or "chromium"].launch()
+            browser = playwright[self.browser or "chromium"].launch(args=[
+            "--disable-background-networking",
+            "--disable-background-timer-throttling",
+            "--disable-client-side-phishing-detection",
+            "--disable-dev-shm-usage",
+            "--disable-extensions",
+            "--disable-gpu",
+            "--disable-popup-blocking",
+            "--disable-renderer-backgrounding",
+            "--disable-setuid-sandbox",
+            "--disable-software-rasterizer",
+            "--mute-audio",
+            "--no-first-run",
+            "--no-sandbox",
+        ])
             page = browser.new_page(user_agent=self.useragent)
 
             if self.wait_until in ('networkidle0', 'networkidle2'):
