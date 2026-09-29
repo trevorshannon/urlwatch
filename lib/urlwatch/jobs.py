@@ -461,7 +461,23 @@ class BrowserJob(Job):
             "--no-first-run",
             "--no-sandbox",
         ])
-            page = browser.new_page(user_agent=self.useragent)
+            context = browser.new_context(user_agent=self.useragent)
+            page = context.new_page()
+            # page.on('request', lambda request: logger.debug('>> %s, %s' % (request.method, request.url)))
+            # page.on('response', lambda response: logger.debug('<< %s, %s' % (response.status, response.url)))
+
+            def handler(route, request):
+                # Don't satisfy requests for these resources.
+                if request.resource_type in ['font', 'media']:
+                    route.abort()
+                elif request.resource_type in ['image'] and '/listing-fallback.png' not in request.url:
+                    route.abort()
+                elif 'maps.googleapis.com' in request.url or 'googletagmanager.com' in request.url:
+                    route.abort()
+                else:
+                    route.continue_()
+
+            context.route('**/*', handler)
 
             if self.wait_until in ('networkidle0', 'networkidle2'):
                 logger.warning(f'wait_until has deprecated value of {self.wait_until}, see docs')
