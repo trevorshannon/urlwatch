@@ -461,7 +461,7 @@ class BrowserJob(Job):
 
             if self.wait_for:
                 locator = page.locator(self.wait_for)
-                locator.wait_for()
+                locator.wait_for(state='attached')
 
             return page.content()
 
